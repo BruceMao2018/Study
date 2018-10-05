@@ -1,0 +1,5 @@
+pool1: create Min Threads, and set them always running for listen the task list.
+once it get task, start to process the task.
+
+and there is an monitor threads to check if current threads are enough to handle the task. if not, create new threads.
+if no tasks, and avaiable threads > Min threads, monitor threads will set 1 work threads exit every second. the exited thread is unknow. it is depend on who get the flag DesThread

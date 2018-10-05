@@ -1,0 +1,8 @@
+#How to compile so: g++ -shared -fPIC -o libname.so add.cc sub.cc mul.cc div.cc
+OBJS = time.cc
+CC = g++
+LIBRARY=
+default:$(OBJS)
+	$(CC) -shared -fPIC $(OBJS) $(LIBRARY) -o libtime.so
+clean:
+	rm run

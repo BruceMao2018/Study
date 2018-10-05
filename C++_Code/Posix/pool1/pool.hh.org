@@ -1,0 +1,54 @@
+#ifndef __POOL_HH
+#define __POOL_HH
+
+#include <iostream>
+#include <pthread.h>
+#include <list>
+#include <vector>
+#include <deque>
+#include <stdexcept>
+#include <stdlib.h>
+using namespace std;
+
+void *HandleTasks(void *t);
+void *Monitor(void*p);
+
+struct Job_List
+{
+	int index;
+	string content;
+};
+
+class ThreadPool
+{
+public:
+	ThreadPool(int Max = 5, int Min = 3);
+	~ThreadPool();
+	int GetMaxThreads() {return MaxThreads;}
+	int GetMinThreads() {return MinThreads;}
+	int GetCurThreads() {return CurThreads;}
+	void CreateThreads(int NumOfThreads);
+	void AddTask(Job_List &);
+	void MonitorThreads();
+	void IncreaseThreads();
+	int DesThreads;
+	bool GetFull() {return full;}
+	friend void *HandleTasks(void *);
+	deque <Job_List> tasks;
+	void RunStatus() {cout << "I am running, Max: " << MaxThreads << endl; }
+
+
+//private:
+	pthread_t ThreadId[20];
+	pthread_mutex_t job_mutex;
+	pthread_mutex_t pool_mutex;
+	pthread_cond_t cond;
+	int MaxThreads;
+	int CurThreads;
+	int MinThreads;
+	bool full;
+	bool TaskEnd;
+};
+
+
+#endif

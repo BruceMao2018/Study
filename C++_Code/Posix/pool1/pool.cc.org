@@ -1,0 +1,239 @@
+/*
+ * Note:1, do not use refer for push_back() if you need to use pop quickly
+ * 	2, Try to use new to get heap memory for a class object, not local variable, since it may cause unexce[ted destrpy
+ */
+#include "pool.hh"
+ThreadPool::ThreadPool(int max, int min)
+{
+	cout << "in struct: " << max << endl;
+	full = false;
+	MaxThreads = max;
+	MinThreads = min;
+	CurThreads = 0;
+	TaskEnd = false;
+	tasks.clear();
+	DesThreads = 0;
+
+	pthread_mutex_init(&job_mutex, NULL);
+	pthread_mutex_init(&pool_mutex, NULL);
+	pthread_cond_init(&cond, NULL);
+	CreateThreads(MinThreads);
+	MonitorThreads();
+};
+
+ThreadPool::~ThreadPool()
+{
+	pthread_mutex_destroy(&job_mutex);
+	pthread_mutex_destroy(&pool_mutex);
+	pthread_cond_destroy(&cond);
+	//sleep(1);//if no wait, it will cause coredump
+	cout << "----destroy----" << endl;
+}
+
+void ThreadPool::CreateThreads(int NumOfThreads)
+{
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+	pthread_mutex_lock(&pool_mutex);
+	for( int i = 0; i < NumOfThreads && i < MaxThreads; i++)
+	{
+		int ret;
+		ret = pthread_create(&ThreadId[i], &attr, HandleTasks, (void*)this);
+		if(ret != 0)
+		{
+			cout << "CreateThreads--ERROR!!!" << endl;
+			throw runtime_error("create threads error");
+		}
+		//if( i == 2)
+		//	throw runtime_error("create threads error");
+
+		CurThreads++;
+		cout << "CreateThreads--CurThreads: " << CurThreads << endl;
+		if( CurThreads == MaxThreads)
+			full = true;
+		//usleep(1000*1000*2);
+	}
+	pthread_mutex_unlock(&pool_mutex);
+
+	pthread_attr_destroy( &attr );
+
+}
+
+void ThreadPool::IncreaseThreads()
+{
+	CreateThreads(1);
+};
+
+void ThreadPool::MonitorThreads()
+{
+	pthread_t tid;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+	int ret = pthread_create(&tid, &attr, Monitor, (void*)this);
+	if(ret != 0)
+	{
+		throw runtime_error("create threads error");
+	}
+	pthread_attr_destroy( &attr );
+	
+};
+
+void ThreadPool::AddTask(Job_List &job)
+{
+	cout << "----------Add Task, Index: " << job.index << "----------" << endl;
+	pthread_mutex_lock(&job_mutex);
+	tasks.push_back(job);
+	pthread_mutex_unlock(&job_mutex);
+}
+
+void * HandleTasks(void *p)
+{
+	ThreadPool *pt = (ThreadPool*)p;
+
+	pthread_mutex_lock(&pt->job_mutex);
+	cout << "HandleTasks--CurThreads: " << pt->CurThreads << endl;
+	//pt->RunStatus();
+	while(!pt->TaskEnd)
+	{
+		while(1)
+		{
+			if(pt->tasks.empty())
+			{
+				cout << pthread_self() << "-----No task, sleep ... " << endl;
+				pthread_mutex_lock(&pt->pool_mutex);
+				if(pt->DesThreads-- > 0)
+				{
+					cout << "Threads exit -- " <<pthread_self() << endl;
+					//pt->DesThreads = false;
+					pt->CurThreads--;
+					pthread_mutex_unlock(&pt->pool_mutex);
+					pthread_mutex_unlock(&pt->job_mutex);
+					pthread_exit(NULL);
+				}
+				pthread_mutex_unlock(&pt->pool_mutex);
+				pthread_mutex_unlock(&pt->job_mutex);
+				//cout << pthread_self() << " No task, release mutex" << endl;
+				usleep(1000*500);
+				pthread_mutex_lock(&pt->job_mutex);
+				//cout << pthread_self() << " No task, get mutex and continue" << endl;
+				continue;
+			}
+			//how about using Job_List &job = tasks.front(), Can not!!!
+pthread_mutex_lock(&pt->pool_mutex);
+cout << "Handle: MaxThreads: " << pt->MaxThreads << " CurThreads: " << pt->CurThreads << " tasks: " << pt->tasks.size() << endl;
+pthread_mutex_unlock(&pt->pool_mutex);
+			Job_List job = pt->tasks.front();
+
+			pt->tasks.pop_front();
+			pthread_mutex_unlock(&pt->job_mutex);
+//			cout << "Thread: " << pthread_self() << " Index: " << job.index << "  Content: " << job.content << endl;
+			usleep(1000*1000);
+			cout << "Thread: " << pthread_self() << " Index: " << job.index << "  Content: " << job.content << "---Done !!!" << endl;
+			break;
+		}
+	}
+}
+
+void *Monitor(void*p)
+{
+	ThreadPool *pt = (ThreadPool*)p;
+	//while(!pt->TaskEnd)
+	while(1)
+	{
+		pthread_mutex_lock(&pt->pool_mutex);
+		//pthread_mutex_lock(&pt->job_mutex);
+		cout << "monitor running ..." << endl;
+		cout << "monitor: MaxThreads: " << pt->MaxThreads << " CurThreads: " << pt->CurThreads << " tasks: " << pt->tasks.size() << endl;
+		if(pt->CurThreads < pt->MaxThreads && pt->tasks.size() > pt->CurThreads)
+		{
+			cout << "--Need to increase threads" << endl;
+			//pthread_mutex_unlock(&pt->job_mutex);
+			pthread_mutex_unlock(&pt->pool_mutex);
+			//pt->IncreaseThreads();
+			int num = pt->tasks.size()/pt->CurThreads ;
+			num = num/10;
+
+			if(num > 20)
+				num = 20;
+			if(num == 0)
+				num = 2;
+
+			if(num + pt->CurThreads > pt->MaxThreads)
+				num = pt->MaxThreads - pt->CurThreads;	
+
+			pt->CreateThreads(num);
+		}
+		else if(pt->CurThreads > pt->MinThreads && pt->tasks.size() == 0)
+		{
+			cout << "CurThreads: " << pt->CurThreads << " set DesThreads to true" << endl;
+			int num = pt->CurThreads - pt->MinThreads ;
+			if(num > 20)
+				num = 20;
+			pt->DesThreads = num;
+			//pthread_mutex_unlock(&pt->job_mutex);
+			pthread_mutex_unlock(&pt->pool_mutex);
+		}
+		else
+		{
+			cout <<"monitor do nothing" << endl;
+			//pthread_mutex_unlock(&pt->job_mutex);
+			pthread_mutex_unlock(&pt->pool_mutex);
+		}
+		usleep(1000*500);
+	}
+}
+
+int main(int argc, char **argv)
+{
+/*
+	try{
+		ThreadPool work;
+		Job_List a, b;
+		a.index = 100;
+		a.content = "I am A";
+		b.index = 101;
+		b.content = "I am B";
+
+for(int i = 0; i < 10; i++)
+{
+		work->AddTask(a);
+		work->AddTask(b);
+}
+	
+		pthread_exit(NULL);
+		cout << "all threads exit" << endl;
+	}catch (exception &e)
+	{
+		cout << "Error: " << e.what() << endl;
+	}
+*/
+
+//Suggest to use "new", not like above way, it will cause coredump.
+	try{
+		ThreadPool *work = new ThreadPool(100,20);
+	
+for(int i = 0; i < 5000; i++)
+{
+		Job_List a, b;
+		a.index = i;
+		a.content = "I am A";
+		work->AddTask(a);
+
+		b.index = i;
+		b.content = "I am B";
+		work->AddTask(b);
+}
+		pthread_exit(NULL);
+		cout << "all threads exit" << endl;
+		delete work;
+	}catch (exception &e)
+	{
+		cout << "Error: " << e.what() << endl;
+	}
+
+	return 0;
+}

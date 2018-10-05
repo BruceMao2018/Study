@@ -1,0 +1,15 @@
+#ifndef __THROW__HH
+#define __THROW__HH
+#include <string>
+
+class MyException
+{
+public:
+	MyException(string &msg):message(msg){}
+	string &getError() {return message;}
+
+private:
+	string message;
+};
+
+#endif
