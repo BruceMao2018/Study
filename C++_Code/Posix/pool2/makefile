@@ -8,7 +8,7 @@ CFLAGS = -d
 LIBPATH = .
 LIBRARY = $(LIBPATH)/libtime.so
 default:$(OBJS)
-	$(CC) -g $(LIB_OBJS) -o $(LIB_NAME)
-	$(CC) -g $(OBJS) $(LIBRARY) -o run -lpthread
+	$(CC) -g $(LIB_CFLAGS) -o $(LIB_NAME) $(LIB_OBJS)
+	$(CC) -g $(OBJS) $(LIBRARY) -o ttt -lpthread
 clean:
 	rm run $(LIB_NAME)

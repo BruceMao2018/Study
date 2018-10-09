@@ -1,0 +1,308 @@
+#######All address in socket must be converted to sockaddr !!!########
+#include <sys/socket.h>
+struct sockaddr
+{
+    unsigned char sa_len;    /* total length */
+    sa_family_t sa_family;   /* address family */
+    char sa_data[14];    /* variable-length address, Include IP + port */
+};
+
+<netinet/in.h>
+struct sockaddr_in
+{
+    sa_family_t     sin_family; /* address_family */
+#######the difference between sockaddr is, the port and IP are seperated as below ######
+#######the length of sockaddr and sockaddr_in is same (16) #######
+    in_port_t       sin_port;    /* port number */
+    struct in_addr  sin_addr;   /* IPv4 address */
+};
+struct in_addr
+{
+    in_addr_t       s_addr;     /* IPv4 address */ /* It is 32 Bit IPv4 address */
+};
+
+
+
+
+#include <arpa/inet.h>
+uint32_t htonl(uint32_t hostint32);
+uint16_t htons(uint16_t hostint16);
+uint32_t ntohl(uint32_t netint32);
+uint16_t ntohs(uint16_t netint16);
+
+##convert the network address 'addr' to char * fomart##
+##size - means length of char * 'str', if size = INET_ADDRSTREAM or INET6_ADDRSTREAM means enough size for str##
+##domain = AF_INET or AF_INET6##
+const char* inet_ntop(int domain, const void *restrict addr, char* restrict str, socklen_t size);
+
+##convert the char * address 'str' to network address 'addr'##
+int inet_pton(int domain, const char* restrict str, void* restrict addr);
+
+e.g.
+#include <arpa/inet.h>
+#include <stdio.h>
+int main(void)
+{
+        char dotaddr[] = "192.168.8.128";
+        struct in_addr ipaddr;
+
+        inet_pton(AF_INET, dotaddr, (void*)&ipaddr);
+
+        ipaddr.s_addr = ntohl(ipaddr.s_addr); //convert the network address to host address
+        printf("addr = %x\n", ipaddr.s_addr);
+
+        ipaddr.s_addr = htonl(ipaddr.s_addr);
+        inet_ntop(AF_INET, (void*)&ipaddr, dotaddr, 16); //convert network address to char * address
+        printf("addr = %s\n", dotaddr);
+
+        return 0;
+}        
+
+
+
+
+struct hostent
+{
+    char *h_name;                      /* Ö»ú/
+    char **h_aliases;                   /* ¿É¡µıðбí/
+    int h_addrtype;                    /* µØ·ÀÐ£¬һ°ãAF_INET */
+    int h_length;                      /* µØ·³¤¶È*/
+    char **h_addr_list;                /* ÍÂµØ·Á±í/
+}
+
+e.g
+#include <stdio.h>
+##include <sys/socket.h>
+##include <netdb.h>
+##include <netinet/in.h>
+int main()
+{
+        struct hostent* h;
+        h = gethostbyname("benxintuzi");
+        printf("host: %s\n", h->h_name);
+        printf("addr: %s\n", inet_ntoa(*((struct in_addr*)h->h_addr)));
+
+        return 0;
+}
+
+[root@benxintuzi benxin]# ./addr04
+host: benxintuzi
+addr: 192.168.8.128
+
+
+
+struct netent* getnetbyaddr(uint32_t net, int type);
+struct netent* getnetbyname(const char* name);
+struct netent* getnetent(void);
+void setnetent(int stayopen);
+void endnetent(void);
+
+struct netent
+{
+    char* n_name;       /* network name */
+    char** n_aliases;   /* alternate network name array pointer */
+    int n_addrtype;     /* net address type */
+    uint32_t n_net;     /* network number*/
+}; 
+
+e.g
+#include <stdio.h>
+##include <netdb.h>
+void printnet(struct netent* net)
+{
+        char** p = net->n_aliases;
+        printf("net name: %s\n", net->n_name);
+        
+        while(*p != NULL)
+        {
+                printf("alias name: %s\n", *p);
+                p++;
+        }
+        
+        printf("address type: %d\n", net->n_addrtype);
+
+        printf("net number: %u\n", net->n_net);
+}
+
+int main()
+{
+        struct netent* net = NULL;
+        setnetent(1);
+        while((net = getnetent()) != NULL)
+        {
+                printnet(net);
+                printf("\n");
+        }
+        endnetent();
+
+        return 0;
+}
+
+[root@benxintuzi benxin]# ./addr05
+net name: default
+address type: 2
+net number: 0
+
+net name: loopback
+address type: 2
+net number: 2130706432
+
+net name: link-local
+address type: 2
+net number: 2851995648
+
+
+
+#include <netdb.h>
+struct protoent* getprotobyname(const char* name);
+struct protoent* getprotobynumber(int proto);
+struct protoent* getprotoent(void);
+void setprotoent(int stayopen);
+void endprotoent(void);
+
+struct protoent
+{
+  char *p_name;                 /* Official protocol name.  */
+  char **p_aliases;             /* Alias list.  */
+  int p_proto;                  /* Protocol number.  */
+};
+
+e.g.
+#innclude <stdio.h>
+#include <netdb.h>
+void printproto(struct protoent* proto)
+{
+        char** p = proto->p_aliases;
+        printf("proto name: %s\n", proto->p_name);
+
+        while(*p != NULL)
+        {
+                printf("alias name: %s\n", *p);
+                p++;
+        }
+
+
+        printf("proto number: %d\n", proto->p_proto);
+}
+
+int main()
+{
+        struct protoent* proto = NULL;
+        setprotoent(1);
+        while((proto = getprotoent()) != NULL)
+        {
+                printproto(proto);
+                printf("\n");
+        }
+        endprotoent();
+
+        return 0;
+}
+
+[root@benxintuzi network]# ./addr06 | more
+proto name: ip
+alias name: IP
+proto number: 0
+
+proto name: hopopt
+alias name: HOPOPT
+proto number: 0
+
+proto name: icmp
+alias name: ICMP
+proto number: 1
+
+proto name: igmp
+alias name: IGMP
+proto number: 2
+
+proto name: ggp
+alias name: GGP
+proto number: 3
+
+
+#include <netdb.h>
+struct servent* getservbyname(const char* name, const char* proto);
+struct servent* getservbyport(int port, const char* proto);
+struct servent* getservent(void);
+void setservent(int stayopen);
+void endservent(void);
+
+struct servent
+{
+  char *s_name;                 /* Official service name.  */
+  char **s_aliases;             /* Alias list.  */
+  int s_port;                   /* Port number.  */
+  char *s_proto;                /* Protocol to use.  */
+  ...
+};
+
+#include <stdio.h>
+##include <netdb.h>
+void printservent(struct servent* serv)
+{
+        char** p = serv->s_aliases;
+        printf("servent name: %s\n", serv->s_name);
+
+        while(*p != NULL)
+        {
+                printf("alias name: %s\n", *p);
+                p++;
+        }
+
+        printf("port number: %d\n", serv->s_port);
+
+        printf("proto to use: %s\n", serv->s_proto);
+}
+
+int main()
+{
+        struct servent* serv = NULL;
+        setservent(1);
+        while((serv = getservent()) != NULL)
+        {
+                printservent(serv);
+                printf("\n");
+        }
+        endservent();
+
+        return 0;
+}
+
+[root@benxintuzi network]# ./addr07 | more
+servent name: tcpmux
+port number: 256
+proto to use: tcp
+
+servent name: tcpmux
+port number: 256
+proto to use: udp
+
+servent name: rje
+port number: 1280
+proto to use: tcp
+
+servent name: rje
+port number: 1280
+proto to use: udp
+
+
+#include <sys/socket.h>
+
+int getsockname(int sockfd, struct sockaddr* restrict addr, socklen_t* restrict alenp);
+int getpeername(int sockfd, struct sockaddr* restrict addr, socklen_t* restrict alenp);
+int bind(int sockfd, const struct sockaddr* addr, socklen_t len);
+int connect(int sockfd, const struct sockaddr* addr, socklen_t len);
+int connect(int sockfd, const struct sockaddr* addr, socklen_t len);
+int listen(int sockfd, int backlog);
+int accept(int sockfd, struct sockaddr* addr, socklen_t* len);
+ssize_t send(int sockfd, const void* buf, size_t nbytes, int flags);
+ssize_t sento(int sockfd, const void* buf, size_t nbytes, int flags, const struct sockaddr* destaddr, socklen_t destlen);
+ssize_t recv(int sockfd, void* buf, size_t nbytes, int flags);
+ssize_t recvfrom(int sockfd, void* buf, size_t len, int flags,struct sockaddr* addr, socklen_t* addrlen);
+ssize_t recvmsg(int sockfd, struct msghdr* msg, int flags);
+int setsockopt(int sockfd, int level, int option, const void* val, socklen_t len);
+int getsockopt(int sockfd, int level, int option, void* val, socklen_t* restrict lenp);
+int sockatmark(int sockfd);
+char *inet_ntoa(struct in_addr in)
+int inet_aton(const char *string, struct in_addr *addr)

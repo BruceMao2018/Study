@@ -274,7 +274,7 @@ void CThreadPool::Monitor()
 CThreadPool::~CThreadPool()
 {
 	TerminalAll();
-	Need to add :
-	pthread_mutex_destroy();
-	pthread_cond_destroy(&cond)
+	//Need to add :
+	//pthread_mutex_destroy(&mutex);
+	//pthread_cond_destroy(&cond);
 }
