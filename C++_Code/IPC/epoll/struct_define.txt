@@ -1,0 +1,42 @@
+#include <sys/epoll.h>
+int epoll_create(int size);
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+
+include<sys/socket.h>
+######get local IP via sockfd######
+int getsockname(int sockfd, struct sockaddr *localaddr, socklen_t *addrlen);
+######get client IP via sockfd######
+int getpeername(int sockfd, struct sockaddr *peeraddr, socklen_t *addrlen);
+
+
+######Any one epoll object will have one eventpoll struct######
+struct eventpoll{
+	//root node, save all epool Event which need to be monitored
+	struct rb_root  rbr;
+	//Double linked lists - save all epool Event which will be returned by epoll_wait
+	struct list_head rdlist;
+};
+
+
+######An epoll object will have many of epoll event######
+######Any one epoll event has one epitem struct######
+struct epitem{
+    struct rb_node  rbn;
+    struct list_head    rdllink;
+    struct epoll_filefd  ffd;
+    struct eventpoll *ep;
+    struct epoll_event event;
+};
+
+struct epoll_event{
+  __uint32_t events;  /* Epoll events */
+  epoll_data_t data;  /* User data variable */
+};
+
+typedef union epoll_data{
+    void        *ptr;
+    int          fd;
+    uint32_t     u32;
+    uint64_t     u64;
+}epoll_data_t;

@@ -1,0 +1,4 @@
+why not use non-blocking as Server3.cc ?
+
+the accept will return immediately, it will take many of CPU recource, we
+should use non-blcking + select

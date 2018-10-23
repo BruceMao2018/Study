@@ -306,3 +306,18 @@ int getsockopt(int sockfd, int level, int option, void* val, socklen_t* restrict
 int sockatmark(int sockfd);
 char *inet_ntoa(struct in_addr in)
 int inet_aton(const char *string, struct in_addr *addr)
+
+//set the socket to NONBLOCK mode
+fcntl(ser_fd, F_SETFL, flags | O_NONBLOCK); 
+
+struct timeval timeout = { 3, 0};//seconds, microseconds
+setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(struct timeval))//set timeout for sending
+setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(struct timeval))//set timeout for recving
+
+
+//if timeout == 0, same as non-blocking, if timeout == NULL, same as blocking
+int select(int maxfd, fd_set* readfds, fd_set* writefds, fd_set* errorfds, struct timeval* timeout);
+FD_ZERO(fd_set *set);       //Clear all entries from the set.
+FD_SET(int fd, fd_set *set);    //Add fd to the set.
+FD_CLR(int fd, fd_set *set);    //Remove fd from the set.
+FD_ISSET(int fd, fd_set *set);  //Return true if fd is in the set
